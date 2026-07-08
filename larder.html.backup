@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Larder — Recipe Finder & Meal Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pine: #1F2E28;
+    --pine-deep: #172420;
+    --parchment: #F3E9D2;
+    --parchment-dim: #E9DDBF;
+    --rust: #B8451F;
+    --rust-dark: #8F3417;
+    --mustard: #D9A441;
+    --ink: #2A2420;
+    --sage: #7C8B6F;
+    --sage-dim: #5E6D53;
+    --shadow-hard: 0 6px 0 rgba(0,0,0,0.18);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(circle at 20% 10%, rgba(255,255,255,0.03), transparent 40%),
+      repeating-linear-gradient(0deg, rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 1px, transparent 1px, transparent 3px),
+      var(--pine);
+    color: var(--parchment);
+    font-family: 'Work Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  ::selection{ background: var(--mustard); color: var(--ink); }
+
+  /* ---------- Header ---------- */
+  header{
+    padding: 32px 5vw 20px;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:20px;
+    border-bottom: 1px solid rgba(243,233,210,0.12);
+  }
+  .brand h1{
+    font-family:'Zilla Slab', serif;
+    font-weight:700;
+    font-size:2.6rem;
+    margin:0;
+    letter-spacing:0.5px;
+    color: var(--parchment);
+  }
+  .brand h1 span{ color: var(--mustard); }
+  .brand p{
+    margin:4px 0 0;
+    font-size:0.85rem;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    font-family:'IBM Plex Mono', monospace;
+    color: var(--sage);
+  }
+
+  .search-wrap{ display:flex; gap:10px; flex-wrap:wrap; }
+  .search-wrap input{
+    background: var(--parchment);
+    border:none;
+    border-radius:3px;
+    padding:12px 16px;
+    font-family:'Work Sans', sans-serif;
+    font-size:0.95rem;
+    color: var(--ink);
+    width:260px;
+    box-shadow: var(--shadow-hard);
+  }
+  .search-wrap input::placeholder{ color:#8a7f6a; }
+  .search-wrap button{
+    background: var(--rust);
+    color: var(--parchment);
+    border:none;
+    border-radius:3px;
+    padding:12px 20px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.8rem;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    cursor:pointer;
+    box-shadow: var(--shadow-hard);
+    transition: transform 0.08s ease;
+  }
+  .search-wrap button:active{ transform: translateY(4px); box-shadow:none; }
+  .search-wrap button:hover{ background: var(--rust-dark); }
+
+  /* ---------- Layout ---------- */
+  .layout{
+    display:grid;
+    grid-template-columns: 320px 1fr;
+    gap:28px;
+    padding: 28px 5vw 60px;
+    align-items:start;
+  }
+  @media (max-width: 900px){
+    .layout{ grid-template-columns: 1fr; }
+  }
+
+  .panel-title{
+    font-family:'IBM Plex Mono', monospace;
+    text-transform:uppercase;
+    font-size:0.75rem;
+    letter-spacing:1.5px;
+    color: var(--mustard);
+    margin: 0 0 14px 2px;
+  }
+
+  /* ---------- Sidebar: card box ---------- */
+  .sidebar{ position:sticky; top:20px; }
+  .card-box{
+    background: var(--pine-deep);
+    border:1px solid rgba(243,233,210,0.1);
+    border-radius:6px;
+    padding:16px;
+    min-height:120px;
+  }
+  .card-scroll{ max-height: 60vh; overflow-y:auto; padding-right:4px; display:flex; flex-direction:column; gap:14px; }
+  .card-scroll::-webkit-scrollbar{ width:6px; }
+  .card-scroll::-webkit-scrollbar-thumb{ background: var(--sage-dim); border-radius:3px; }
+
+  .empty-note{
+    font-size:0.85rem;
+    color: rgba(243,233,210,0.5);
+    font-style: italic;
+    padding: 10px 4px;
+  }
+
+  /* ---------- Recipe index card ---------- */
+  .recipe-card{
+    background: var(--parchment);
+    color: var(--ink);
+    border-radius: 3px 8px 8px 3px;
+    padding: 12px 12px 12px 26px;
+    position:relative;
+    cursor:grab;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.25), 0 8px 14px rgba(0,0,0,0.25);
+    transform: rotate(-0.6deg);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    display:flex;
+    gap:10px;
+    align-items:center;
+  }
+  .recipe-card:nth-child(even){ transform: rotate(0.7deg); }
+  .recipe-card:hover{ transform: rotate(0deg) translateY(-2px); box-shadow: 0 4px 0 rgba(0,0,0,0.25), 0 12px 18px rgba(0,0,0,0.3); }
+  .recipe-card:active{ cursor:grabbing; }
+  .recipe-card::before{
+    content:"";
+    position:absolute;
+    left:9px; top:50%;
+    width:9px; height:9px;
+    margin-top:-4.5px;
+    border-radius:50%;
+    background: var(--pine-deep);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.6);
+  }
+  .recipe-card img{
+    width:52px; height:52px;
+    object-fit:cover;
+    border-radius:4px;
+    flex-shrink:0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .recipe-card .info{ min-width:0; flex:1; }
+  .recipe-card .info h4{
+    font-family:'Zilla Slab', serif;
+    font-size:0.95rem;
+    margin:0 0 3px;
+    line-height:1.2;
+    font-weight:600;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .recipe-card .info .meta{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.65rem;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    color: var(--sage-dim);
+  }
+  .recipe-card .actions{ display:flex; flex-direction:column; gap:6px; }
+  .icon-btn{
+    background:none; border:none; cursor:pointer;
+    width:22px; height:22px;
+    display:flex; align-items:center; justify-content:center;
+    padding:0; color: var(--rust);
+    opacity:0.8;
+  }
+  .icon-btn:hover{ opacity:1; transform: scale(1.15); }
+  .icon-btn svg{ width:16px; height:16px; }
+  .icon-btn.faved{ color: var(--rust); }
+  .icon-btn.faved svg{ fill: var(--rust); }
+
+  .tape{
+    position:absolute;
+    top:-8px; left:22px;
+    width:38px; height:16px;
+    background: var(--mustard);
+    opacity:0.85;
+    transform: rotate(-3deg);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  }
+
+  /* ---------- Planner: corkboard ---------- */
+  .corkboard{
+    background:
+      radial-gradient(rgba(0,0,0,0.12) 1px, transparent 1.4px) 0 0/14px 14px,
+      #6b4a2e;
+    border-radius:8px;
+    padding: 18px;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.35), 0 10px 24px rgba(0,0,0,0.3);
+  }
+  .board-grid{
+    display:grid;
+    grid-template-columns: 70px repeat(7, 1fr);
+    gap:8px;
+  }
+  .board-grid .corner{ }
+  .day-label{
+    font-family:'Zilla Slab', serif;
+    font-weight:600;
+    font-size:0.95rem;
+    text-align:center;
+    color: var(--parchment);
+    padding: 8px 4px;
+    background: rgba(0,0,0,0.18);
+    border-radius:4px;
+  }
+  .meal-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.68rem;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color: rgba(243,233,210,0.75);
+    display:flex;
+    align-items:center;
+    padding-left:2px;
+  }
+  .slot{
+    min-height:78px;
+    background: rgba(0,0,0,0.15);
+    border: 1.5px dashed rgba(243,233,210,0.25);
+    border-radius:5px;
+    padding:6px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    position:relative;
+  }
+  .slot.drag-over{ background: rgba(217,164,65,0.18); border-color: var(--mustard); }
+  .slot.filled{ border-style:solid; border-color:transparent; padding:0; }
+
+  .pin-card{
+    width:100%; height:100%;
+    background: var(--parchment);
+    color: var(--ink);
+    border-radius:3px;
+    padding:8px 22px 8px 8px;
+    position:relative;
+    font-size:0.72rem;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:2px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.35);
+  }
+  .pin-card h5{
+    font-family:'Zilla Slab', serif;
+    margin:0;
+    font-size:0.78rem;
+    line-height:1.15;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+  .pin-dot{
+    position:absolute; top:6px; left:50%;
+    transform:translateX(-50%);
+    width:9px; height:9px;
+    border-radius:50%;
+    background: var(--rust);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  }
+  .pin-card .rm{
+    position:absolute; top:2px; right:2px;
+    background:none; border:none; cursor:pointer;
+    color: var(--rust-dark); font-size:0.9rem; line-height:1;
+    padding:3px;
+  }
+
+  .slot-placeholder{
+    font-size:0.65rem;
+    color: rgba(243,233,210,0.35);
+    font-family:'IBM Plex Mono', monospace;
+    text-align:center;
+  }
+
+  /* ---------- Shopping list ---------- */
+  .shopping-toggle{
+    margin-top:22px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .shopping-toggle button{
+    background: var(--sage);
+    color: var(--pine-deep);
+    border:none;
+    padding:11px 18px;
+    border-radius:3px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.75rem;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    cursor:pointer;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+  }
+  .shopping-toggle button:hover{ background: var(--sage-dim); color: var(--parchment); }
+  .shopping-toggle button:active{ transform: translateY(3px); box-shadow:none; }
+  .shopping-toggle span{ font-size:0.8rem; color: rgba(243,233,210,0.6); }
+
+  .receipt{
+    margin-top:18px;
+    background: var(--parchment);
+    color: var(--ink);
+    max-width:340px;
+    padding: 22px 20px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.8rem;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+    position:relative;
+    border-radius:2px;
+  }
+  .receipt::before, .receipt::after{
+    content:"";
+    position:absolute; left:0; right:0; height:10px;
+    background:
+      linear-gradient(-45deg, var(--pine) 5px, transparent 0) 0 0/10px 10px,
+      linear-gradient(45deg, var(--pine) 5px, transparent 0) 0 0/10px 10px;
+  }
+  .receipt::before{ top:-9px; }
+  .receipt::after{ bottom:-9px; transform: rotate(180deg); }
+  .receipt h3{
+    font-family:'Zilla Slab', serif;
+    font-size:1rem;
+    text-align:center;
+    margin:0 0 4px;
+    letter-spacing:1px;
+  }
+  .receipt .sub{ text-align:center; font-size:0.65rem; color:#8a7f6a; margin-bottom:14px; }
+  .receipt ul{ list-style:none; margin:0; padding:0; }
+  .receipt li{
+    display:flex; justify-content:space-between; gap:10px;
+    padding:5px 0;
+    border-bottom: 1px dashed #c9bb9a;
+  }
+  .receipt li span.name{ text-transform:capitalize; }
+  .receipt li span.amt{ color:#8a7f6a; text-align:right; white-space:nowrap; }
+
+  /* ---------- Detail modal ---------- */
+  .overlay{
+    position:fixed; inset:0;
+    background: rgba(23,36,32,0.75);
+    display:flex; align-items:center; justify-content:center;
+    z-index:50;
+    padding:20px;
+  }
+  .modal{
+    background: var(--parchment);
+    color: var(--ink);
+    max-width:560px;
+    width:100%;
+    max-height:82vh;
+    overflow-y:auto;
+    border-radius:8px;
+    padding:26px 28px;
+    position:relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .modal img{ width:100%; height:200px; object-fit:cover; border-radius:6px; margin-bottom:14px; }
+  .modal h2{ font-family:'Zilla Slab', serif; margin:0 0 4px; font-size:1.5rem; }
+  .modal .modal-meta{ font-family:'IBM Plex Mono', monospace; font-size:0.7rem; text-transform:uppercase; color:var(--sage-dim); letter-spacing:1px; margin-bottom:16px; }
+  .modal .close-btn{
+    position:absolute; top:14px; right:14px;
+    background: var(--ink); color: var(--parchment);
+    border:none; width:28px; height:28px; border-radius:50%;
+    cursor:pointer; font-size:1rem; line-height:1;
+  }
+  .modal h4{ font-family:'IBM Plex Mono', monospace; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:var(--rust); margin:18px 0 8px; }
+  .modal ul.ing{ margin:0; padding-left:18px; }
+  .modal ul.ing li{ margin-bottom:4px; font-size:0.88rem; }
+  .modal p.instr{ font-size:0.9rem; line-height:1.6; white-space:pre-line; }
+
+  .loading-msg, .error-msg{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.75rem;
+    padding:10px 4px;
+    color: rgba(243,233,210,0.55);
+  }
+  .error-msg{ color: var(--mustard); }
+
+  footer{
+    text-align:center;
+    padding: 20px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.68rem;
+    color: rgba(243,233,210,0.35);
+    letter-spacing:0.5px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>Lar<span>der</span>.</h1>
+    <p>find a recipe · pin it to the week · pull the list</p>
+  </div>
+  <form class="search-wrap" id="searchForm">
+    <input type="text" id="searchInput" placeholder="chicken, pasta, tofu…" autocomplete="off">
+    <button type="submit">Search</button>
+  </form>
+</header>
+
+<div class="layout">
+
+  <div class="sidebar">
+    <div class="panel-title">Results</div>
+    <div class="card-box">
+      <div class="card-scroll" id="resultsScroll">
+        <div class="empty-note">Search a dish, an ingredient, or a cuisine to fill the box.</div>
+      </div>
+    </div>
+
+    <div style="height:22px;"></div>
+    <div class="panel-title">Favorites</div>
+    <div class="card-box">
+      <div class="card-scroll" id="favScroll">
+        <div class="empty-note">Nothing saved yet — tap the heart on a card.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="panel-title">This week</div>
+    <div class="corkboard">
+      <div class="board-grid" id="boardGrid"></div>
+    </div>
+
+    <div class="shopping-toggle">
+      <button id="genListBtn">Generate shopping list</button>
+      <span id="genListStatus"></span>
+    </div>
+    <div id="receiptWrap"></div>
+  </div>
+
+</div>
+
+<footer>drag a card onto a slot · click a card to see the full recipe · data persists to your Larder storage</footer>
+
+<div id="modalRoot"></div>
+
+<script>
+(function(){
+  const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const MEALS = ['Breakfast','Lunch','Dinner'];
+
+  let recipeCache = {};      // id -> meal summary {id,name,thumb,category,area}
+  let ingredientCache = {};  // id -> [{ingredient, measure}]
+  let favorites = [];        // array of ids
+  let mealPlan = {};         // "Mon-Breakfast" -> id
+  let dragId = null;
+
+  const heartOutline = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-6.7-4.35-9.3-8.1C.9 10 1.7 6.2 5 5c2-.75 4 .1 5 2 .1.2.9.2 1 0 1-1.9 3-2.75 5-2 3.3 1.2 4.1 5 2.3 7.9C18.7 16.65 12 21 12 21z"/></svg>`;
+  const heartFilled = `<svg viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.1C.9 10 1.7 6.2 5 5c2-.75 4 .1 5 2 .1.2.9.2 1 0 1-1.9 3-2.75 5-2 3.3 1.2 4.1 5 2.3 7.9C18.7 16.65 12 21 12 21z"/></svg>`;
+  const plusIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>`;
+
+  // ---------- storage ----------
+  async function loadState(){
+    try{
+      const f = await window.storage.get('larder:favorites', false);
+      favorites = f ? JSON.parse(f.value) : [];
+    }catch(e){ favorites = []; }
+    try{
+      const p = await window.storage.get('larder:plan', false);
+      mealPlan = p ? JSON.parse(p.value) : {};
+    }catch(e){ mealPlan = {}; }
+    try{
+      const rc = await window.storage.get('larder:cache', false);
+      recipeCache = rc ? JSON.parse(rc.value) : {};
+    }catch(e){ recipeCache = {}; }
+  }
+  async function saveFavorites(){
+    try{ await window.storage.set('larder:favorites', JSON.stringify(favorites), false); }catch(e){}
+  }
+  async function savePlan(){
+    try{ await window.storage.set('larder:plan', JSON.stringify(mealPlan), false); }catch(e){}
+  }
+  async function saveCache(){
+    try{ await window.storage.set('larder:cache', JSON.stringify(recipeCache), false); }catch(e){}
+  }
+
+  // ---------- API ----------
+  async function searchMeals(q){
+    const res = await fetch('https://www.themealdb.com/api/json/v1/1/search.php?s=' + encodeURIComponent(q));
+    const data = await res.json();
+    return data.meals || [];
+  }
+  async function lookupMeal(id){
+    if(ingredientCache[id]) return ingredientCache[id];
+    const res = await fetch('https://www.themealdb.com/api/json/v1/1/lookup.php?i=' + encodeURIComponent(id));
+    const data = await res.json();
+    const meal = data.meals && data.meals[0];
+    if(!meal) return null;
+    const ings = [];
+    for(let i=1;i<=20;i++){
+      const ing = meal['strIngredient'+i];
+      const meas = meal['strMeasure'+i];
+      if(ing && ing.trim()) ings.push({ ingredient: ing.trim(), measure: (meas||'').trim() });
+    }
+    const full = { ings, instructions: meal.strInstructions, thumb: meal.strMealThumb, name: meal.strMeal, area: meal.strArea, category: meal.strCategory };
+    ingredientCache[id] = full;
+    return full;
+  }
+
+  // ---------- render: recipe card ----------
+  function makeCardEl(meal, opts){
+    opts = opts || {};
+    const isFav = favorites.includes(meal.id);
+    const card = document.createElement('div');
+    card.className = 'recipe-card';
+    card.draggable = true;
+    card.dataset.id = meal.id;
+    if(opts.tape) {
+      const t = document.createElement('div'); t.className='tape'; card.appendChild(t);
+    }
+    card.innerHTML += `
+      <img src="${meal.thumb}" alt="">
+      <div class="info">
+        <h4>${meal.name}</h4>
+        <div class="meta">${meal.area || ''}${meal.area && meal.category ? ' · ' : ''}${meal.category || ''}</div>
+      </div>
+      <div class="actions">
+        <button class="icon-btn fav-btn ${isFav ? 'faved' : ''}" title="Save to favorites">${isFav ? heartFilled : heartOutline}</button>
+      </div>
+    `;
+    card.addEventListener('dragstart', (e)=>{
+      dragId = meal.id;
+      e.dataTransfer.setData('text/plain', meal.id);
+    });
+    card.querySelector('.fav-btn').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      toggleFavorite(meal);
+    });
+    card.addEventListener('click', (e)=>{
+      if(e.target.closest('.fav-btn')) return;
+      openModal(meal.id);
+    });
+    return card;
+  }
+
+  function toggleFavorite(meal){
+    recipeCache[meal.id] = meal;
+    saveCache();
+    const idx = favorites.indexOf(meal.id);
+    if(idx === -1) favorites.push(meal.id);
+    else favorites.splice(idx,1);
+    saveFavorites();
+    renderFavorites();
+    renderResultsFavStates();
+  }
+
+  function renderResultsFavStates(){
+    document.querySelectorAll('#resultsScroll .recipe-card').forEach(card=>{
+      const id = card.dataset.id;
+      const btn = card.querySelector('.fav-btn');
+      const isFav = favorites.includes(id);
+      btn.className = 'icon-btn fav-btn ' + (isFav?'faved':'');
+      btn.innerHTML = isFav ? heartFilled : heartOutline;
+    });
+  }
+
+  function renderFavorites(){
+    const wrap = document.getElementById('favScroll');
+    wrap.innerHTML = '';
+    if(favorites.length === 0){
+      wrap.innerHTML = '<div class="empty-note">Nothing saved yet — tap the heart on a card.</div>';
+      return;
+    }
+    favorites.forEach(id=>{
+      const meal = recipeCache[id];
+      if(!meal) return;
+      wrap.appendChild(makeCardEl(meal, {tape:true}));
+    });
+  }
+
+  // ---------- search ----------
+  document.getElementById('searchForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const q = document.getElementById('searchInput').value.trim();
+    if(!q) return;
+    const wrap = document.getElementById('resultsScroll');
+    wrap.innerHTML = '<div class="loading-msg">Searching the pantry…</div>';
+    try{
+      const meals = await searchMeals(q);
+      wrap.innerHTML = '';
+      if(meals.length === 0){
+        wrap.innerHTML = '<div class="empty-note">No matches — try another search term.</div>';
+        return;
+      }
+      meals.slice(0,20).forEach(m=>{
+        const summary = { id: m.idMeal, name: m.strMeal, thumb: m.strMealThumb, category: m.strCategory, area: m.strArea };
+        recipeCache[m.idMeal] = summary;
+        wrap.appendChild(makeCardEl(summary));
+      });
+      saveCache();
+    }catch(err){
+      wrap.innerHTML = '<div class="error-msg">Could not reach the recipe index. Check your connection and try again.</div>';
+    }
+  });
+
+  // ---------- planner board ----------
+  function renderBoard(){
+    const grid = document.getElementById('boardGrid');
+    grid.innerHTML = '';
+    grid.appendChild(document.createElement('div')); // corner
+    DAYS.forEach(d=>{
+      const lab = document.createElement('div');
+      lab.className = 'day-label';
+      lab.textContent = d;
+      grid.appendChild(lab);
+    });
+    MEALS.forEach(meal=>{
+      const ml = document.createElement('div');
+      ml.className = 'meal-label';
+      ml.textContent = meal;
+      grid.appendChild(ml);
+      DAYS.forEach(day=>{
+        const key = day + '-' + meal;
+        const slot = document.createElement('div');
+        slot.className = 'slot';
+        slot.dataset.key = key;
+        const filledId = mealPlan[key];
+        if(filledId && recipeCache[filledId]){
+          slot.classList.add('filled');
+          slot.appendChild(makePinCard(recipeCache[filledId], key));
+        } else {
+          slot.innerHTML = '<div class="slot-placeholder">drop here</div>';
+        }
+        slot.addEventListener('dragover', (e)=>{ e.preventDefault(); slot.classList.add('drag-over'); });
+        slot.addEventListener('dragleave', ()=> slot.classList.remove('drag-over'));
+        slot.addEventListener('drop', (e)=>{
+          e.preventDefault();
+          slot.classList.remove('drag-over');
+          const id = e.dataTransfer.getData('text/plain') || dragId;
+          if(!id || !recipeCache[id]) return;
+          mealPlan[key] = id;
+          savePlan();
+          renderBoard();
+        });
+        grid.appendChild(slot);
+      });
+    });
+  }
+
+  function makePinCard(meal, key){
+    const el = document.createElement('div');
+    el.className = 'pin-card';
+    el.innerHTML = `
+      <div class="pin-dot"></div>
+      <button class="rm" title="Remove">×</button>
+      <h5>${meal.name}</h5>
+    `;
+    el.querySelector('.rm').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      delete mealPlan[key];
+      savePlan();
+      renderBoard();
+    });
+    el.addEventListener('click', ()=> openModal(meal.id));
+    return el;
+  }
+
+  // ---------- shopping list ----------
+  document.getElementById('genListBtn').addEventListener('click', async ()=>{
+    const status = document.getElementById('genListStatus');
+    const wrap = document.getElementById('receiptWrap');
+    const ids = Array.from(new Set(Object.values(mealPlan)));
+    if(ids.length === 0){
+      status.textContent = 'Pin a few meals to the week first.';
+      wrap.innerHTML = '';
+      return;
+    }
+    status.textContent = 'Pulling ingredients…';
+    try{
+      const details = await Promise.all(ids.map(id => lookupMeal(id)));
+      const agg = {};
+      details.forEach(d=>{
+        if(!d) return;
+        d.ings.forEach(({ingredient, measure})=>{
+          const key = ingredient.toLowerCase();
+          if(!agg[key]) agg[key] = { name: ingredient, measures: [] };
+          if(measure) agg[key].measures.push(measure);
+        });
+      });
+      const items = Object.values(agg).sort((a,b)=> a.name.localeCompare(b.name));
+      status.textContent = items.length + ' items from ' + ids.length + ' meals';
+      wrap.innerHTML = '';
+      const receipt = document.createElement('div');
+      receipt.className = 'receipt';
+      receipt.innerHTML = `
+        <h3>Shopping List</h3>
+        <div class="sub">${ids.length} meal${ids.length===1?'':'s'} this week</div>
+        <ul>${items.map(it => `<li><span class="name">${it.name}</span><span class="amt">${it.measures.join(' + ') || '—'}</span></li>`).join('')}</ul>
+      `;
+      wrap.appendChild(receipt);
+    }catch(err){
+      status.textContent = 'Could not pull ingredients — try again.';
+    }
+  });
+
+  // ---------- modal ----------
+  async function openModal(id){
+    const summary = recipeCache[id];
+    if(!summary) return;
+    const root = document.getElementById('modalRoot');
+    root.innerHTML = `
+      <div class="overlay" id="overlayEl">
+        <div class="modal">
+          <button class="close-btn" id="closeModalBtn">×</button>
+          <img src="${summary.thumb}" alt="">
+          <h2>${summary.name}</h2>
+          <div class="modal-meta">${summary.area||''} ${summary.category? '· '+summary.category : ''}</div>
+          <div class="loading-msg">Loading recipe…</div>
+        </div>
+      </div>
+    `;
+    document.getElementById('overlayEl').addEventListener('click', (e)=>{
+      if(e.target.id === 'overlayEl') root.innerHTML = '';
+    });
+    document.getElementById('closeModalBtn').addEventListener('click', ()=> root.innerHTML = '');
+    try{
+      const full = await lookupMeal(id);
+      const modal = root.querySelector('.modal');
+      const loadDiv = modal.querySelector('.loading-msg');
+      loadDiv.outerHTML = `
+        <h4>Ingredients</h4>
+        <ul class="ing">${full.ings.map(i => `<li>${i.measure ? i.measure+' — ' : ''}${i.ingredient}</li>`).join('')}</ul>
+        <h4>Instructions</h4>
+        <p class="instr">${full.instructions || 'No instructions listed.'}</p>
+      `;
+    }catch(err){
+      const modal = root.querySelector('.modal');
+      modal.querySelector('.loading-msg').textContent = 'Could not load the full recipe.';
+    }
+  }
+
+  // ---------- init ----------
+  (async function init(){
+    await loadState();
+    renderFavorites();
+    renderBoard();
+  })();
+})();
+</script>
+
+</body>
+</html>
